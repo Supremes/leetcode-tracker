@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="roadmap-page">
+    <h1>🗺️ 算法套路地图</h1>
+    <p class="subtitle">看到题先识别套路，再写代码。匹配到哪类就用哪个模板。</p>
+
+    <!-- 记忆口诀 -->
+    <div class="mnemonics">
+        <h2>📝 记忆口诀</h2>
+        <div class="mnemonic-grid">
+            <div class="mnemonic-item">配对找数 → 哈希</div>
+            <div class="mnemonic-item">有序/原地 → 双指针</div>
+            <div class="mnemonic-item">连续子串 → 滑动窗口</div>
+            <div class="mnemonic-item">区间和 → 前缀和</div>
+            <div class="mnemonic-item">所有方案 → 回溯</div>
+            <div class="mnemonic-item">Top K → 堆</div>
+            <div class="mnemonic-item">最值方案数 → DP</div>
+        </div>
+    </div>
+
+    <!-- 套路卡片 -->
+    <div class="roadmap-grid">
+        {% for cat in categories %}
+        <div class="roadmap-card">
+            <div class="roadmap-header">
+                <h3>{{ cat.category }}</h3>
+                <div class="roadmap-progress">
+                    <span class="progress-text">{{ cat.done }}/{{ cat.total }}</span>
+                    <div class="progress-bar small">
+                        <div class="progress-fill" style="width: {{ (cat.done / cat.total * 100) if cat.total > 0 else 0 }}%"></div>
+                    </div>
+                </div>
+            </div>
+            <div class="roadmap-details">
+                <div class="detail-item">
+                    <span class="detail-label">触发信号：</span>
+                    <span class="detail-value">{{ cat.trigger }}</span>
+                </div>
+                <div class="detail-item">
+                    <span class="detail-label">核心结构：</span>
+                    <span class="detail-value">{{ cat.structure }}</span>
+                </div>
+                <div class="detail-item mnemonic">
+                    <span class="detail-label">口诀：</span>
+                    <span class="detail-value highlight">{{ cat.mnemonic }}</span>
+                </div>
+            </div>
+            <a href="/problems?category={{ cat.category }}" class="btn btn-outline">查看题目 →</a>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}

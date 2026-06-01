@@ -1,0 +1,98 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="problems-page">
+    <div class="page-header">
+        <h1>📋 题目列表</h1>
+        <span class="problem-count">{{ problems|length }} 道题</span>
+    </div>
+
+    <!-- 筛选器 -->
+    <div class="filters">
+        <div class="filter-group">
+            <label>难度：</label>
+            <div class="filter-buttons">
+                <a href="/problems" class="filter-btn {% if not current_filters.difficulty %}active{% endif %}">全部</a>
+                {% for diff in difficulties %}
+                <a href="/problems?difficulty={{ diff }}" class="filter-btn {{ diff|lower }} {% if current_filters.difficulty == diff %}active{% endif %}">{{ diff }}</a>
+                {% endfor %}
+            </div>
+        </div>
+        <div class="filter-group">
+            <label>优先级：</label>
+            <div class="filter-buttons">
+                <a href="/problems" class="filter-btn {% if not current_filters.priority %}active{% endif %}">全部</a>
+                {% for pri in priorities %}
+                <a href="/problems?priority={{ pri }}" class="filter-btn {% if current_filters.priority == pri %}active{% endif %}">{{ pri }}</a>
+                {% endfor %}
+            </div>
+        </div>
+        <div class="filter-group">
+            <label>状态：</label>
+            <div class="filter-buttons">
+                <a href="/problems" class="filter-btn {% if not current_filters.status %}active{% endif %}">全部</a>
+                <a href="/problems?status=todo" class="filter-btn {% if current_filters.status == 'todo' %}active{% endif %}">待开始</a>
+                <a href="/problems?status=in_progress" class="filter-btn {% if current_filters.status == 'in_progress' %}active{% endif %}">进行中</a>
+                <a href="/problems?status=done" class="filter-btn {% if current_filters.status == 'done' %}active{% endif %}">已完成</a>
+                <a href="/problems?status=review" class="filter-btn {% if current_filters.status == 'review' %}active{% endif %}">需复习</a>
+            </div>
+        </div>
+        <div class="filter-group">
+            <label>收藏：</label>
+            <div class="filter-buttons">
+                <a href="/problems" class="filter-btn {% if not current_filters.bookmarked %}active{% endif %}">全部</a>
+                <a href="/problems?bookmarked=1" class="filter-btn {% if current_filters.bookmarked %}active{% endif %}">⭐ 已收藏</a>
+            </div>
+        </div>
+    </div>
+
+    <!-- 题目表格 -->
+    <div class="problems-table-wrapper">
+        <table class="problems-table">
+            <thead>
+                <tr>
+                    <th>题号</th>
+                    <th>题目</th>
+                    <th>难度</th>
+                    <th>套路</th>
+                    <th>优先级</th>
+                    <th>状态</th>
+                    <th>操作</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for problem in problems %}
+                <tr class="problem-row {% if problem.status == 'done' %}done{% endif %}">
+                    <td class="problem-id">{{ problem.leetcode_id }}</td>
+                    <td class="problem-title">
+                        <a href="/problem/{{ problem.id }}">{{ problem.title_cn }}</a>
+                    </td>
+                    <td>
+                        <span class="difficulty-badge {{ problem.difficulty|lower }}">{{ problem.difficulty }}</span>
+                    </td>
+                    <td>
+                        <span class="category-tag">{{ problem.category }}</span>
+                    </td>
+                    <td>
+                        <span class="priority-badge {{ problem.priority|lower }}">{{ problem.priority }}</span>
+                    </td>
+                    <td>
+                        <select class="status-select" onchange="updateStatus({{ problem.id }}, this.value)">
+                            <option value="todo" {% if problem.status == 'todo' %}selected{% endif %}>待开始</option>
+                            <option value="in_progress" {% if problem.status == 'in_progress' %}selected{% endif %}>进行中</option>
+                            <option value="done" {% if problem.status == 'done' %}selected{% endif %}>已完成</option>
+                            <option value="review" {% if problem.status == 'review' %}selected{% endif %}>需复习</option>
+                        </select>
+                    </td>
+                    <td>
+                        <button class="btn-icon" onclick="toggleBookmark({{ problem.id }})" title="收藏">
+                            {% if problem.is_bookmarked %}⭐{% else %}☆{% endif %}
+                        </button>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

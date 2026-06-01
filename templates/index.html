@@ -1,0 +1,332 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="dashboard">
+    <h1>📊 学习仪表盘</h1>
+    
+    <!-- 核心统计卡片 -->
+    <div class="stats-grid">
+        <div class="stat-card primary">
+            <div class="stat-number">{{ stats.progress_percent }}%</div>
+            <div class="stat-label">总体进度</div>
+            <div class="progress-bar">
+                <div class="progress-fill" style="width: {{ stats.progress_percent }}%"></div>
+            </div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-number">{{ stats.done }}</div>
+            <div class="stat-label">已完成</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-number">{{ stats.in_progress }}</div>
+            <div class="stat-label">进行中</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-number">{{ stats.streak }}</div>
+            <div class="stat-label">🔥 连续天数</div>
+        </div>
+    </div>
+
+    <!-- 热力图日历 -->
+    <div class="section">
+        <h2>📅 刷题日历</h2>
+        <div class="heatmap-wrapper">
+            <div id="heatmap" class="heatmap-calendar"></div>
+            <div class="heatmap-legend">
+                <span class="legend-label">少</span>
+                <span class="legend-box level-0"></span>
+                <span class="legend-box level-1"></span>
+                <span class="legend-box level-2"></span>
+                <span class="legend-box level-3"></span>
+                <span class="legend-box level-4"></span>
+                <span class="legend-label">多</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- 雷达图 + 难度分布 -->
+    <div class="charts-row">
+        <div class="section chart-section">
+            <h2>🎯 算法掌握度</h2>
+            <canvas id="radarChart" width="400" height="350"></canvas>
+        </div>
+        <div class="section chart-section">
+            <h2>📈 难度分布</h2>
+            <canvas id="difficultyChart" width="400" height="350"></canvas>
+        </div>
+    </div>
+
+    <!-- 进度预测 -->
+    <div class="section prediction-section">
+        <h2>🔮 进度预测</h2>
+        <div class="prediction-grid">
+            <div class="prediction-card">
+                <div class="prediction-icon">⚡</div>
+                <div class="prediction-value">{{ prediction.daily_rate }}</div>
+                <div class="prediction-label">每日完成（30天均值）</div>
+            </div>
+            <div class="prediction-card">
+                <div class="prediction-icon">📅</div>
+                <div class="prediction-value">{{ prediction.weekly_rate }}</div>
+                <div class="prediction-label">每周完成</div>
+            </div>
+            <div class="prediction-card">
+                <div class="prediction-icon">🎯</div>
+                <div class="prediction-value">{{ prediction.remaining }}</div>
+                <div class="prediction-label">剩余题目</div>
+            </div>
+            <div class="prediction-card {% if prediction.weeks_to_finish and prediction.weeks_to_finish <= 6 %}highlight{% endif %}">
+                <div class="prediction-icon">🏁</div>
+                <div class="prediction-value">
+                    {% if prediction.weeks_to_finish %}
+                        {{ prediction.weeks_to_finish }} 周
+                    {% else %}
+                        -
+                    {% endif %}
+                </div>
+                <div class="prediction-label">
+                    {% if prediction.target_date %}
+                        预计 {{ prediction.target_date }} 完成
+                    {% else %}
+                        开始刷题后自动计算
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 智能推荐 -->
+    <div class="section">
+        <h2>💡 智能推荐</h2>
+        {% if recommendations %}
+        <div class="recommend-list">
+            {% for rec in recommendations %}
+            <div class="recommend-item">
+                <div class="recommend-left">
+                    <span class="problem-id">{{ rec.leetcode_id }}</span>
+                    <a href="/problem/{{ rec.id }}" class="problem-title">{{ rec.title_cn }}</a>
+                </div>
+                <div class="recommend-right">
+                    <span class="difficulty-badge {{ rec.difficulty|lower }}">{{ rec.difficulty }}</span>
+                    <span class="category-tag">{{ rec.category }}</span>
+                    <span class="recommend-reason">{{ rec.reason }}</span>
+                    <a href="https://leetcode.cn/problems/{{ rec.title|lower|replace(' ', '-') }}/" target="_blank" class="btn btn-sm">去做 →</a>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <p class="empty-state">所有题目都已完成！🎉</p>
+        {% endif %}
+    </div>
+
+    <!-- 优先级进度 -->
+    <div class="section">
+        <h2>🎯 优先级进度</h2>
+        <div class="priority-grid">
+            {% for pri, data in stats.by_priority.items() %}
+            <div class="priority-card">
+                <div class="priority-header">
+                    <span class="priority-badge {{ pri|lower }}">{{ pri }}</span>
+                    <span class="priority-label">
+                        {% if pri == 'P0' %}必刷题{% elif pri == 'P1' %}强化训练{% else %}加分项{% endif %}
+                    </span>
+                </div>
+                <div class="priority-count">{{ data.done }}/{{ data.total }}</div>
+                <div class="progress-bar">
+                    <div class="progress-fill" style="width: {{ (data.done / data.total * 100) if data.total > 0 else 0 }}%"></div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <div class="dashboard-bottom">
+        <!-- 最近完成 -->
+        <div class="section">
+            <h2>✅ 最近完成</h2>
+            {% if recent_done %}
+            <div class="recent-list">
+                {% for problem in recent_done %}
+                <div class="recent-item">
+                    <span class="problem-id">{{ problem.leetcode_id }}</span>
+                    <a href="/problem/{{ problem.leetcode_id }}" class="problem-title">{{ problem.title_cn }}</a>
+                    <span class="difficulty-badge {{ problem.difficulty|lower }}">{{ problem.difficulty }}</span>
+                    <span class="category-tag">{{ problem.category }}</span>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <p class="empty-state">还没有完成任何题目，开始你的第一道题吧！</p>
+            {% endif %}
+        </div>
+
+        <!-- 推荐下一题 -->
+        {% if next_problem %}
+        <div class="section">
+            <h2>🚀 推荐下一题</h2>
+            <div class="next-problem-card">
+                <div class="next-problem-header">
+                    <span class="problem-id">{{ next_problem.leetcode_id }}</span>
+                    <span class="difficulty-badge {{ next_problem.difficulty|lower }}">{{ next_problem.difficulty }}</span>
+                </div>
+                <h3>{{ next_problem.title_cn }}</h3>
+                <span class="category-tag">{{ next_problem.category }}</span>
+                <a href="/problem/{{ next_problem.id }}" class="btn btn-primary">开始做题 →</a>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- 本周统计 -->
+    <div class="section">
+        <h2>📅 本周统计</h2>
+        <div class="week-stats">
+            <div class="week-stat">
+                <div class="week-stat-number">{{ stats.week_done }}</div>
+                <div class="week-stat-label">本周完成</div>
+            </div>
+            <div class="week-stat">
+                <div class="week-stat-number">{{ stats.streak }}</div>
+                <div class="week-stat-label">连续天数</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// ── 热力图 ──
+(function() {
+    const heatmapData = {{ heatmap_data|safe }};
+    const container = document.getElementById('heatmap');
+    const today = new Date();
+    const startDate = new Date(today);
+    startDate.setDate(startDate.getDate() - 364);
+    // 调整到周日
+    startDate.setDate(startDate.getDate() - startDate.getDay());
+
+    const months = ['1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月'];
+    const days = ['日','一','二','三','四','五','六'];
+
+    let html = '<div class="heatmap-grid">';
+    
+    // 月份标签
+    html += '<div class="heatmap-months">';
+    let lastMonth = -1;
+    for (let d = new Date(startDate); d <= today; d.setDate(d.getDate() + 1)) {
+        if (d.getMonth() !== lastMonth && d.getDate() <= 7) {
+            const offset = Math.floor((d - startDate) / (7 * 86400000));
+            html += `<span class="month-label" style="left:${offset * 13}px">${months[d.getMonth()]}</span>`;
+            lastMonth = d.getMonth();
+        }
+    }
+    html += '</div>';
+
+    // 日历格子
+    html += '<div class="heatmap-body">';
+    html += '<div class="heatmap-days">';
+    for (let i = 0; i < 7; i++) {
+        html += `<span class="day-label" style="top:${i * 13}px">${i % 2 === 1 ? days[i] : ''}</span>`;
+    }
+    html += '</div>';
+    html += '<div class="heatmap-cells">';
+    
+    let currentDate = new Date(startDate);
+    let weekCol = 0;
+    while (currentDate <= today) {
+        const dayOfWeek = currentDate.getDay();
+        if (dayOfWeek === 0 && currentDate > startDate) weekCol++;
+        const dateStr = currentDate.toISOString().split('T')[0];
+        const count = heatmapData[dateStr] || 0;
+        const level = count === 0 ? 0 : count === 1 ? 1 : count === 2 ? 2 : count === 3 ? 3 : 4;
+        html += `<div class="heatmap-cell level-${level}" 
+            style="left:${weekCol * 13}px;top:${dayOfWeek * 13}px"
+            title="${dateStr}: ${count} 道题"></div>`;
+        currentDate.setDate(currentDate.getDate() + 1);
+    }
+    html += '</div></div></div>';
+    container.innerHTML = html;
+})();
+
+// ── 雷达图 ──
+(function() {
+    const masteryData = {{ category_mastery|safe }};
+    const labels = masteryData.map(d => d.category);
+    const values = masteryData.map(d => d.mastery);
+    
+    new Chart(document.getElementById('radarChart'), {
+        type: 'radar',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: '掌握度 %',
+                data: values,
+                backgroundColor: 'rgba(217, 119, 6, 0.15)',
+                borderColor: 'rgba(217, 119, 6, 0.8)',
+                borderWidth: 2,
+                pointBackgroundColor: 'rgba(217, 119, 6, 1)',
+                pointRadius: 4,
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                r: {
+                    beginAtZero: true,
+                    max: 100,
+                    ticks: { stepSize: 25, font: { size: 10 }, backdropColor: 'transparent' },
+                    pointLabels: { font: { size: 11, family: "'LXGW WenKai Screen'" } },
+                    grid: { color: 'rgba(0,0,0,0.06)' },
+                }
+            },
+            plugins: {
+                legend: { display: false }
+            }
+        }
+    });
+})();
+
+// ── 难度环形图 ──
+(function() {
+    const diffData = {{ stats.by_difficulty|tojson }};
+    const labels = Object.keys(diffData);
+    const done = labels.map(k => diffData[k].done);
+    const remaining = labels.map(k => diffData[k].total - diffData[k].done);
+    const colors = { 'Easy': '#059669', 'Medium': '#d97706', 'Hard': '#dc2626' };
+    
+    new Chart(document.getElementById('difficultyChart'), {
+        type: 'doughnut',
+        data: {
+            labels: labels,
+            datasets: [{
+                data: done,
+                backgroundColor: labels.map(k => colors[k]),
+                borderWidth: 0,
+                hoverOffset: 8
+            }, {
+                data: remaining,
+                backgroundColor: labels.map(k => colors[k] + '20'),
+                borderWidth: 0,
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            cutout: '55%',
+            plugins: {
+                legend: {
+                    position: 'bottom',
+                    labels: {
+                        font: { family: "'LXGW WenKai Screen'", size: 12 },
+                        padding: 16,
+                        usePointStyle: true,
+                        pointStyleWidth: 12,
+                    }
+                }
+            }
+        }
+    });
+})();
+</script>
+{% endblock %}

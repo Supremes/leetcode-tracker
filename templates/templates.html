@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="templates-page">
+    <h1>💾 代码模板库</h1>
+    <p class="subtitle">背下来不是耻辱，是效率。面试官想看你解决问题，不是发明轮子。</p>
+
+    {% for category, templates in templates_by_category.items() %}
+    <div class="template-section">
+        <h2>{{ category }}</h2>
+        <div class="template-grid">
+            {% for template in templates %}
+            <div class="template-card">
+                <div class="template-header">
+                    <span class="problem-id">{{ template.leetcode_id }}</span>
+                    <span class="problem-title">{{ template.title_cn }}</span>
+                </div>
+                <div class="template-code-wrapper">
+                    <pre><code id="code-{{ template.leetcode_id }}">{{ template.template_code }}</code></pre>
+                    <button class="btn-copy" onclick="copyCode('code-{{ template.leetcode_id }}')">📋 复制</button>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% endblock %}

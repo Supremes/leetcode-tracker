@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="plan-page">
+    <h1>📅 30 天重启计划</h1>
+    <p class="subtitle">按"先简单结构，后复杂算法；先模板题，后变种题"的顺序，避免一上来就被 DP 劝退。</p>
+
+    <!-- 每日节奏 -->
+    <div class="daily-rhythm">
+        <h2>⏰ 每天的节奏（90 分钟版本）</h2>
+        <div class="rhythm-steps">
+            <div class="rhythm-step">
+                <div class="step-time">10 min</div>
+                <div class="step-desc">复习昨天的题，能在白纸上默写模板就过</div>
+            </div>
+            <div class="rhythm-step">
+                <div class="step-time">60 min</div>
+                <div class="step-desc">做 1-2 道新题（中等题为主），先想 15 分钟，想不出来直接看题解</div>
+            </div>
+            <div class="rhythm-step">
+                <div class="step-time">20 min</div>
+                <div class="step-desc">把题解的关键思路用自己的话写在笔记里（不要抄代码）</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 关键纪律 -->
+    <div class="disciplines">
+        <h2>⚠️ 关键纪律</h2>
+        <div class="discipline-list">
+            <div class="discipline-item bad">❌ 不要按 LeetCode 题号顺序刷</div>
+            <div class="discipline-item bad">❌ 不要"想 1 小时还没思路"硬扛——看题解不丢人，复盘才是关键</div>
+            <div class="discipline-item good">✅ 同一类题连续刷 3-5 道，强化模式识别</div>
+            <div class="discipline-item good">✅ 第二天默写昨天的模板，第七天再默写一次</div>
+        </div>
+    </div>
+
+    <!-- 周计划 -->
+    <div class="weeks-plan">
+        {% for week in weeks %}
+        <div class="week-card">
+            <div class="week-header">
+                <div class="week-title">
+                    <span class="week-number">W{{ week.week }}</span>
+                    <h3>{{ week.theme }}</h3>
+                </div>
+                <div class="week-progress">
+                    <span class="progress-text">{{ week.done }}/{{ week.total }}</span>
+                    <div class="progress-bar">
+                        <div class="progress-fill" style="width: {{ week.progress }}%"></div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="week-info">
+                <div class="info-item">
+                    <span class="info-label">重点套路：</span>
+                    <span class="info-value">{{ week.topics|join('、') }}</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">目标题量：</span>
+                    <span class="info-value">{{ week.target }} 道</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">心态：</span>
+                    <span class="info-value">{{ week.mindset }}</span>
+                </div>
+            </div>
+
+            <div class="week-problems">
+                <h4>本周题目</h4>
+                <div class="problems-list">
+                    {% for problem in week.problems %}
+                    <div class="problem-item {% if problem.status == 'done' %}done{% endif %}">
+                        <span class="problem-id">{{ problem.leetcode_id }}</span>
+                        <a href="/problem/{{ problem.id }}" class="problem-title">{{ problem.title_cn }}</a>
+                        <span class="difficulty-badge {{ problem.difficulty|lower }}">{{ problem.difficulty }}</span>
+                        <select class="status-select small" onchange="updateStatus({{ problem.id }}, this.value)">
+                            <option value="todo" {% if problem.status == 'todo' %}selected{% endif %}>⬜</option>
+                            <option value="in_progress" {% if problem.status == 'in_progress' %}selected{% endif %}>🔄</option>
+                            <option value="done" {% if problem.status == 'done' %}selected{% endif %}>✅</option>
+                            <option value="review" {% if problem.status == 'review' %}selected{% endif %}>📝</option>
+                        </select>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}

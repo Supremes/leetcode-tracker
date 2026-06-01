@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LeetCode 进度追踪</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://cdn.jsdelivr.net/npm/lxgw-wenkai-screen-webfont@1.7.0/style.css" rel="stylesheet">
+    <link rel="stylesheet" href="/static/css/style.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+</head>
+<body>
+    <nav class="navbar">
+        <div class="container">
+            <a href="/" class="logo">🧮 LeetCode 追踪</a>
+            <div class="nav-links">
+                <a href="/" class="{% if active_page == 'dashboard' %}active{% endif %}">仪表盘</a>
+                <a href="/problems" class="{% if active_page == 'problems' %}active{% endif %}">题目列表</a>
+                <a href="/roadmap" class="{% if active_page == 'roadmap' %}active{% endif %}">套路地图</a>
+                <a href="/plan" class="{% if active_page == 'plan' %}active{% endif %}">30天计划</a>
+                <a href="/templates" class="{% if active_page == 'templates' %}active{% endif %}">模板库</a>
+            </div>
+        </div>
+    </nav>
+
+    <main class="container">
+        {% block content %}{% endblock %}
+    </main>
+
+    <script>
+        function apiPost(url, data, callback) {
+            var xhr = new XMLHttpRequest();
+            xhr.open('POST', url, true);
+            xhr.setRequestHeader('Content-Type', 'application/json');
+            xhr.onload = function() { if (callback) callback(xhr.status === 200); };
+            xhr.send(JSON.stringify(data));
+        }
+
+        function updateStatus(problemId, status) {
+            apiPost('/api/update_status', { problem_id: problemId, status: status }, function(ok) {
+                if (ok) location.reload();
+            });
+        }
+
+        function toggleBookmark(problemId) {
+            apiPost('/api/toggle_bookmark', { problem_id: problemId }, function(ok) {
+                if (ok) location.reload();
+            });
+        }
+
+        function saveNotes(problemId) {
+            var textarea = document.getElementById('notes-' + problemId);
+            apiPost('/api/update_notes', { problem_id: problemId, notes: textarea.value }, function(ok) {
+                if (ok) alert('笔记已保存！');
+            });
+        }
+
+        function copyCode(elementId) {
+            var code = document.getElementById(elementId);
+            navigator.clipboard.writeText(code.textContent);
+            alert('代码已复制！');
+        }
+    </script>
+</body>
+</html>

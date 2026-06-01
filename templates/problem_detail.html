@@ -1,0 +1,293 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="problem-detail-page">
+    <a href="/problems" class="back-link">← 返回题目列表</a>
+    
+    <div class="problem-header">
+        <div class="problem-title-section">
+            <span class="problem-id">{{ problem.leetcode_id }}</span>
+            <h1>{{ problem.title_cn }}</h1>
+            <span class="problem-title-en">{{ problem.title }}</span>
+        </div>
+        <div class="problem-badges-wrap">
+            <span class="badges-toggle" onclick="toggleBadges(this)">🏷️ 查看标签 <span class="collapse-icon">▶</span></span>
+            <div class="problem-badges" style="display:none;">
+                <span class="difficulty-badge {{ problem.difficulty|lower }}">{{ problem.difficulty }}</span>
+                <span class="category-tag">{{ problem.category }}</span>
+                <span class="priority-badge {{ problem.priority|lower }}">{{ problem.priority }}</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="problem-content">
+        <div class="problem-actions">
+            <div class="status-section">
+                <label>当前状态：</label>
+                <select class="status-select" onchange="updateStatus({{ problem.id }}, this.value)">
+                    <option value="todo" {% if problem.status == 'todo' %}selected{% endif %}>待开始</option>
+                    <option value="in_progress" {% if problem.status == 'in_progress' %}selected{% endif %}>进行中</option>
+                    <option value="done" {% if problem.status == 'done' %}selected{% endif %}>已完成</option>
+                    <option value="review" {% if problem.status == 'review' %}selected{% endif %}>需复习</option>
+                </select>
+            </div>
+            <div class="action-buttons">
+                <a href="https://leetcode.cn{{ problem.url }}" target="_blank" class="btn btn-primary">🔗 去 LeetCode 做题</a>
+                <button class="btn btn-outline" onclick="toggleBookmark({{ problem.id }})">{% if problem.is_bookmarked %}⭐ 已收藏{% else %}☆ 收藏{% endif %}</button>
+            </div>
+        </div>
+
+        {% if problem.template_code %}
+        <div class="template-section">
+            <h2 class="collapsible" onclick="toggleCollapse(this)">
+                📝 模板代码 <span class="collapse-icon">▶</span>
+            </h2>
+            <div class="collapsible-content" style="display:none;">
+                <div class="template-code-wrapper">
+                    <pre><code id="template-{{ problem.id }}">{{ problem.template_code }}</code></pre>
+                    <button class="btn-copy" onclick="copyCode('template-{{ problem.id }}')">📋 复制</button>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- AI 分析（可折叠） -->
+        <div class="template-section">
+            <h2 class="collapsible" onclick="toggleCollapse(this)">
+                🤖 AI 智能分析 <span class="collapse-icon">▶</span>
+            </h2>
+            <div class="collapsible-content" style="display:none;">
+                <div class="ai-controls" id="ai-controls">
+                    <button class="btn btn-primary" id="ai-analyze-btn" onclick="doAIAnalyze({{ problem.id }})">
+                        ✨ 生成题目解析
+                    </button>
+                    <span class="ai-hint">基于 MiMo 大模型，约需 30 秒</span>
+                </div>
+                <div id="ai-result" class="ai-result" style="display:none;"></div>
+                <div id="ai-loading" class="ai-loading" style="display:none;">
+                    <div class="loading-spinner"></div>
+                    <span id="ai-loading-text">AI 正在分析中，请稍候（约 30 秒）...</span>
+                </div>
+                <div id="ai-error" class="ai-error" style="display:none;"></div>
+            </div>
+        </div>
+
+        <div class="notes-section">
+            <h2>📝 我的笔记</h2>
+            <textarea id="notes-{{ problem.id }}" class="notes-textarea" placeholder="在这里记录你的解题思路、易错点、复杂度分析...">{{ problem.my_notes or '' }}</textarea>
+            <button class="btn btn-primary" onclick="saveNotes({{ problem.id }})">💾 保存笔记</button>
+        </div>
+
+        <div class="solution-section">
+            <h2>💻 我的解法</h2>
+            <textarea id="solution-{{ problem.id }}" class="solution-textarea" placeholder="粘贴你的代码...">{{ problem.solution or '' }}</textarea>
+            <div class="complexity-inputs">
+                <div class="complexity-input">
+                    <label>时间复杂度：</label>
+                    <input type="text" placeholder="如 O(n)" value="{{ problem.time_complexity or '' }}">
+                </div>
+                <div class="complexity-input">
+                    <label>空间复杂度：</label>
+                    <input type="text" placeholder="如 O(1)" value="{{ problem.space_complexity or '' }}">
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// 标签折叠
+function toggleBadges(el) {
+    var badges = el.nextElementSibling;
+    var icon = el.querySelector('.collapse-icon');
+    if (badges.style.display === 'none') {
+        badges.style.display = 'flex';
+        el.innerHTML = '🏷️ 隐藏标签 <span class="collapse-icon">▼</span>';
+    } else {
+        badges.style.display = 'none';
+        el.innerHTML = '🏷️ 查看标签 <span class="collapse-icon">▶</span>';
+    }
+}
+
+// 模板/AI 折叠
+function toggleCollapse(el) {
+    var content = el.nextElementSibling;
+    var icon = el.querySelector('.collapse-icon');
+    if (content.style.display === 'none') {
+        content.style.display = 'block';
+        icon.textContent = '▼';
+    } else {
+        content.style.display = 'none';
+        icon.textContent = '▶';
+    }
+}
+
+// 检查是否有缓存的 AI 分析（不自动显示，需手动触发）
+(function() {
+    var cached = {{ problem.ai_analysis|tojson }};
+    if (cached) {
+        // 有缓存，改变按钮文字提示用户
+        var btn = document.getElementById('ai-analyze-btn');
+        if (btn) {
+            btn.innerHTML = '👀 查看已有分析';
+            btn.classList.remove('btn-primary');
+            btn.classList.add('btn-outline');
+            btn.setAttribute('data-cached', 'true');
+            btn.setAttribute('data-content', cached);
+        }
+        var hint = document.querySelector('.ai-hint');
+        if (hint) {
+            hint.textContent = '已有缓存分析，点击查看或重新生成';
+        }
+    }
+})();
+
+var aiTimer = null;
+
+function doAIAnalyze(problemId) {
+    var resultEl = document.getElementById('ai-result');
+    var loadingEl = document.getElementById('ai-loading');
+    var errorEl = document.getElementById('ai-error');
+    var loadingText = document.getElementById('ai-loading-text');
+    var btn = document.getElementById('ai-analyze-btn');
+    
+    // 如果有缓存且还没点过，显示缓存内容
+    if (btn.getAttribute('data-cached') === 'true') {
+        var cachedContent = btn.getAttribute('data-content');
+        if (cachedContent) {
+            resultEl.innerHTML = markdownToHtml(cachedContent);
+            resultEl.style.display = 'block';
+            btn.innerHTML = '🔄 重新生成';
+            btn.classList.remove('btn-outline');
+            btn.classList.add('btn-primary');
+            btn.removeAttribute('data-cached');
+            btn.removeAttribute('data-content');
+            return;
+        }
+    }
+    
+    btn.disabled = true;
+    btn.textContent = '⏳ 分析中...';
+    loadingEl.style.display = 'flex';
+    resultEl.style.display = 'none';
+    errorEl.style.display = 'none';
+    
+    var seconds = 0;
+    aiTimer = setInterval(function() {
+        seconds++;
+        loadingText.textContent = 'AI 正在分析中，已等待 ' + seconds + ' 秒...';
+    }, 1000);
+    
+    var xhr = new XMLHttpRequest();
+    xhr.open('POST', '/api/ai_analyze', true);
+    xhr.setRequestHeader('Content-Type', 'application/json');
+    xhr.timeout = 180000;
+    
+    xhr.onload = function() {
+        clearInterval(aiTimer);
+        loadingEl.style.display = 'none';
+        btn.disabled = false;
+        btn.textContent = '🔄 重新生成';
+        
+        if (xhr.status === 200) {
+            try {
+                var data = JSON.parse(xhr.responseText);
+                if (data.success) {
+                    resultEl.innerHTML = markdownToHtml(data.analysis);
+                    resultEl.style.display = 'block';
+                } else {
+                    errorEl.textContent = '❌ ' + (data.error || '分析失败');
+                    errorEl.style.display = 'block';
+                    btn.textContent = '✨ 生成题目解析';
+                }
+            } catch(e) {
+                errorEl.textContent = '❌ 响应解析失败';
+                errorEl.style.display = 'block';
+                btn.textContent = '✨ 生成题目解析';
+            }
+        } else {
+            errorEl.textContent = '❌ 服务器错误 (HTTP ' + xhr.status + ')';
+            errorEl.style.display = 'block';
+            btn.textContent = '✨ 生成题目解析';
+        }
+    };
+    
+    xhr.onerror = function() {
+        clearInterval(aiTimer);
+        loadingEl.style.display = 'none';
+        btn.disabled = false;
+        btn.textContent = '✨ 生成题目解析';
+        errorEl.textContent = '❌ 网络错误，请检查连接后重试';
+        errorEl.style.display = 'block';
+    };
+    
+    xhr.ontimeout = function() {
+        clearInterval(aiTimer);
+        loadingEl.style.display = 'none';
+        btn.disabled = false;
+        btn.textContent = '✨ 生成题目解析';
+        errorEl.textContent = '❌ 请求超时（3分钟），AI 服务可能繁忙，请稍后重试';
+        errorEl.style.display = 'block';
+    };
+    
+    xhr.send(JSON.stringify({ problem_id: problemId }));
+}
+
+function markdownToHtml(md) {
+    if (!md) return '';
+    var html = md
+        // 代码块 (必须在其他处理之前)
+        .replace(/```(\w*)\n([\s\S]*?)```/g, function(match, lang, code) {
+            return '<pre class="code-block"><code class="language-' + (lang||'text') + '">' + escapeHtml(code.trim()) + '</code></pre>';
+        })
+        // 标题
+        .replace(/^### (.+)$/gm, '<h4 class="md-h3">$1</h4>')
+        .replace(/^## (.+)$/gm, '<h3 class="md-h2">$1</h3>')
+        .replace(/^# (.+)$/gm, '<h2 class="md-h1">$1</h2>')
+        // 粗体和斜体
+        .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+        .replace(/\*(.+?)\*/g, '<em>$1</em>')
+        // 行内代码
+        .replace(/`([^`]+)`/g, '<code class="inline-code">$1</code>')
+        // 表格行
+        .replace(/^\|(.+)\|$/gm, function(match, content) {
+            var cells = content.split('|').map(function(c) { return '<td>' + c.trim() + '</td>'; }).join('');
+            return '<tr>' + cells + '</tr>';
+        })
+        // 无序列表
+        .replace(/^[-*] (.+)$/gm, '<li class="md-li">$1</li>')
+        // 有序列表
+        .replace(/^\d+\. (.+)$/gm, '<li class="md-oli">$1</li>')
+        // 引用
+        .replace(/^> (.+)$/gm, '<blockquote class="md-quote">$1</blockquote>')
+        // 水平线
+        .replace(/^---$/gm, '<hr class="md-hr">')
+        // 段落 (连续两个换行)
+        .replace(/\n\n/g, '</p><p class="md-p">')
+        // 单换行
+        .replace(/\n/g, '<br>');
+    
+    // 包装列表项
+    html = html.replace(/(<li class="md-li">[\s\S]*?<\/li>)/g, '<ul class="md-ul">$1</ul>');
+    html = html.replace(/(<li class="md-oli">[\s\S]*?<\/li>)/g, '<ol class="md-ol">$1</ol>');
+    // 去重嵌套
+    html = html.replace(/<ul class="md-ul">(<ul class="md-ul">)/g, '$1');
+    html = html.replace(/<\/ul><\/ul>/g, '</ul>');
+    html = html.replace(/<ol class="md-ol">(<ol class="md-ol">)/g, '$1');
+    html = html.replace(/<\/ol><\/ol>/g, '</ol>');
+    
+    // 包装在段落中
+    if (!html.startsWith('<')) {
+        html = '<p class="md-p">' + html + '</p>';
+    }
+    
+    return html;
+}
+
+function escapeHtml(text) {
+    var div = document.createElement('div');
+    div.appendChild(document.createTextNode(text));
+    return div.innerHTML;
+}
+</script>
+{% endblock %}

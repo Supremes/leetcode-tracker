@@ -1,0 +1,44 @@
+
+/* 标签遮盖 */
+.tag-hidden {
+    cursor: pointer;
+    user-select: none;
+}
+.tag-mask {
+    display: inline-block;
+    background: #e8eaed;
+    color: #9aa0a6;
+    padding: 4px 14px;
+    border-radius: 12px;
+    font-size: 0.85rem;
+    letter-spacing: 2px;
+    transition: all 0.2s;
+}
+.tag-hidden:hover .tag-mask {
+    background: #dadce0;
+}
+
+/* 标签折叠按钮 */
+.badges-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    cursor: pointer;
+    font-size: 0.85rem;
+    color: #5f6368;
+    padding: 4px 12px;
+    border-radius: 16px;
+    background: #f1f3f4;
+    transition: background 0.2s;
+}
+.badges-toggle:hover {
+    background: #e8eaed;
+}
+.problem-badges-wrap {
+    margin-top: 8px;
+}
+.problem-badges {
+    display: flex;
+    gap: 8px;
+    margin-top: 8px;
+}

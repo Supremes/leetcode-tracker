@@ -1,0 +1,729 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="analytics-page">
+    <h1>📈 数据分析</h1>
+    <p class="subtitle">深入洞察你的刷题进度和知识掌握度</p>
+
+    <!-- 概览卡片 -->
+    <div class="stats-grid">
+        <div class="stat-card primary">
+            <div class="stat-number" id="current-streak">-</div>
+            <div class="stat-label">🔥 连续刷题天数</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-number">{{ stats.done }}</div>
+            <div class="stat-label">已完成题目</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-number" id="avg-daily">-</div>
+            <div class="stat-label">日均完成</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-number" id="finish-date">-</div>
+            <div class="stat-label">预计完成日期</div>
+        </div>
+    </div>
+
+    <!-- GitHub 绿墙热力图 -->
+    <div class="section">
+        <h2>🗓️ 刷题日历</h2>
+        <p style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: var(--space-md);">最近 20 周的每日刷题量</p>
+        <div class="heatmap-container">
+            <div class="heatmap-labels">
+                <span>一</span><span>三</span><span>五</span>
+            </div>
+            <div class="heatmap-grid" id="heatmap-grid"></div>
+            <div class="heatmap-months" id="heatmap-months"></div>
+            <div class="heatmap-legend">
+                <span class="legend-label">少</span>
+                <div class="legend-box" style="background: #ebedf0"></div>
+                <div class="legend-box" style="background: #9be9a8"></div>
+                <div class="legend-box" style="background: #40c463"></div>
+                <div class="legend-box" style="background: #30a14e"></div>
+                <div class="legend-box" style="background: #216e39"></div>
+                <span class="legend-label">多</span>
+            </div>
+        </div>
+        <div class="heatmap-stats">
+            <span>总完成: <strong id="total-done-month">-</strong> 题</span>
+            <span>最长连续: <strong id="max-streak">-</strong> 天</span>
+            <span>活跃天数: <strong id="active-days">-</strong> 天</span>
+        </div>
+    </div>
+
+    <!-- 雷达图：分类掌握度 -->
+    <div class="section">
+        <h2>🎯 分类掌握度</h2>
+        <p style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: var(--space-md);">各算法类型的完成情况</p>
+        <div class="radar-container">
+            <canvas id="radar-chart" width="500" height="500"></canvas>
+        </div>
+        <div class="radar-legend" id="radar-legend"></div>
+    </div>
+
+    <!-- 智能推荐 -->
+    <div class="section">
+        <h2>💡 智能推荐</h2>
+        <p style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: var(--space-md);">基于薄弱知识点的个性化推荐</p>
+        
+        <div class="weak-points" id="weak-points">
+            <div class="loading">分析中...</div>
+        </div>
+        
+        <div class="recommendations" id="recommendations">
+            <div class="loading">加载推荐...</div>
+        </div>
+    </div>
+
+    <!-- 进度预测 & 趋势 -->
+    <div class="analytics-bottom">
+        <div class="section">
+            <h2>📊 每周趋势</h2>
+            <div class="trend-chart-container">
+                <canvas id="trend-chart" width="500" height="300"></canvas>
+            </div>
+        </div>
+        
+        <div class="section">
+            <h2>🚀 进度预测</h2>
+            <div class="prediction-card" id="prediction-card">
+                <div class="loading">计算中...</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 难度分布饼图 -->
+    <div class="section">
+        <h2>📊 难度分布</h2>
+        <div class="difficulty-chart-container">
+            <div class="donut-chart-wrapper">
+                <canvas id="difficulty-chart" width="300" height="300"></canvas>
+                <div class="donut-center" id="donut-center">
+                    <div class="donut-total">{{ stats.total }}</div>
+                    <div class="donut-label">总题数</div>
+                </div>
+            </div>
+            <div class="difficulty-breakdown" id="difficulty-breakdown">
+                {% for ds in diff_stats %}
+                <div class="diff-item">
+                    <div class="diff-color {{ ds.difficulty|lower }}"></div>
+                    <div class="diff-info">
+                        <div class="diff-name">{{ ds.difficulty }}</div>
+                        <div class="diff-count">{{ ds.done }}/{{ ds.total }}</div>
+                    </div>
+                    <div class="diff-percent">{{ ((ds.done or 0) / ds.total * 100)|round(1) if ds.total > 0 else 0 }}%</div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .analytics-page { max-width: 1100px; }
+    
+    /* 热力图 */
+    .heatmap-container {
+        display: flex;
+        gap: 8px;
+        align-items: flex-start;
+        overflow-x: auto;
+        padding-bottom: var(--space-sm);
+    }
+    .heatmap-labels {
+        display: flex;
+        flex-direction: column;
+        gap: 3px;
+        font-size: 0.7rem;
+        color: var(--text-muted);
+        padding-top: 2px;
+    }
+    .heatmap-labels span { height: 13px; line-height: 13px; }
+    .heatmap-grid {
+        display: grid;
+        grid-template-rows: repeat(7, 13px);
+        grid-auto-flow: column;
+        gap: 3px;
+    }
+    .heatmap-cell {
+        width: 13px;
+        height: 13px;
+        border-radius: 2px;
+        background: #ebedf0;
+        cursor: pointer;
+        transition: all 0.15s ease;
+        position: relative;
+    }
+    .heatmap-cell:hover {
+        outline: 2px solid var(--text-primary);
+        outline-offset: 1px;
+    }
+    .heatmap-cell[data-level="1"] { background: #9be9a8; }
+    .heatmap-cell[data-level="2"] { background: #40c463; }
+    .heatmap-cell[data-level="3"] { background: #30a14e; }
+    .heatmap-cell[data-level="4"] { background: #216e39; }
+    .heatmap-tooltip {
+        position: absolute;
+        bottom: calc(100% + 8px);
+        left: 50%;
+        transform: translateX(-50%);
+        background: var(--text-primary);
+        color: white;
+        padding: 4px 10px;
+        border-radius: 6px;
+        font-size: 0.75rem;
+        white-space: nowrap;
+        pointer-events: none;
+        z-index: 10;
+        opacity: 0;
+        transition: opacity 0.15s;
+    }
+    .heatmap-cell:hover .heatmap-tooltip { opacity: 1; }
+    .heatmap-months {
+        display: flex;
+        gap: 0;
+        margin-left: 25px;
+        font-size: 0.7rem;
+        color: var(--text-muted);
+    }
+    .heatmap-legend {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        margin-left: auto;
+        font-size: 0.7rem;
+        color: var(--text-muted);
+    }
+    .legend-box { width: 13px; height: 13px; border-radius: 2px; }
+    .legend-label { margin: 0 4px; }
+    .heatmap-stats {
+        display: flex;
+        gap: var(--space-xl);
+        margin-top: var(--space-md);
+        font-size: 0.85rem;
+        color: var(--text-muted);
+    }
+    .heatmap-stats strong { color: var(--text-primary); font-family: var(--font-mono); }
+
+    /* 雷达图 */
+    .radar-container {
+        display: flex;
+        justify-content: center;
+        padding: var(--space-md) 0;
+    }
+    .radar-legend {
+        display: flex;
+        flex-wrap: wrap;
+        gap: var(--space-sm) var(--space-lg);
+        justify-content: center;
+        margin-top: var(--space-md);
+    }
+    .radar-legend-item {
+        display: flex;
+        align-items: center;
+        gap: var(--space-sm);
+        font-size: 0.85rem;
+    }
+    .radar-legend-dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+    }
+    .radar-legend-value {
+        font-family: var(--font-mono);
+        font-weight: 600;
+        color: var(--accent);
+    }
+
+    /* 推荐 */
+    .weak-points {
+        display: flex;
+        gap: var(--space-sm);
+        flex-wrap: wrap;
+        margin-bottom: var(--space-lg);
+    }
+    .weak-tag {
+        padding: 6px 14px;
+        border-radius: var(--radius-sm);
+        font-size: 0.85rem;
+        font-weight: 500;
+        display: flex;
+        align-items: center;
+        gap: var(--space-sm);
+    }
+    .weak-tag .rate {
+        font-family: var(--font-mono);
+        font-weight: 700;
+    }
+    .weak-tag.critical { background: var(--hard-bg); color: var(--hard); }
+    .weak-tag.warning { background: var(--medium-bg); color: var(--medium); }
+    .weak-tag.good { background: var(--easy-bg); color: var(--easy); }
+
+    .recommendations-list {
+        display: flex;
+        flex-direction: column;
+        gap: var(--space-sm);
+    }
+    .recommend-item {
+        display: flex;
+        align-items: center;
+        gap: var(--space-md);
+        padding: var(--space-md) var(--space-lg);
+        background: var(--bg-tertiary);
+        border-radius: var(--radius-md);
+        transition: all 0.2s ease;
+        cursor: pointer;
+        text-decoration: none;
+        color: inherit;
+    }
+    .recommend-item:hover {
+        background: var(--bg-accent);
+        transform: translateX(4px);
+    }
+    .recommend-id {
+        font-family: var(--font-mono);
+        font-weight: 700;
+        color: var(--accent);
+        min-width: 50px;
+    }
+    .recommend-info { flex: 1; }
+    .recommend-title { font-weight: 600; margin-bottom: 2px; }
+    .recommend-reason {
+        font-size: 0.8rem;
+        color: var(--text-muted);
+    }
+    .recommend-badges {
+        display: flex;
+        gap: var(--space-xs);
+    }
+
+    /* 趋势图 */
+    .trend-chart-container {
+        padding: var(--space-md) 0;
+    }
+
+    /* 预测 */
+    .prediction-card {
+        padding: var(--space-md);
+    }
+    .prediction-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: var(--space-md);
+    }
+    .prediction-item {
+        background: var(--bg-tertiary);
+        border-radius: var(--radius-md);
+        padding: var(--space-lg);
+        text-align: center;
+    }
+    .prediction-value {
+        font-family: var(--font-mono);
+        font-size: 1.8rem;
+        font-weight: 700;
+        color: var(--accent);
+    }
+    .prediction-label {
+        font-size: 0.85rem;
+        color: var(--text-muted);
+        margin-top: var(--space-xs);
+    }
+    .prediction-note {
+        margin-top: var(--space-lg);
+        padding: var(--space-md);
+        background: var(--accent-light);
+        border-radius: var(--radius-md);
+        font-size: 0.9rem;
+        color: var(--accent-hover);
+        text-align: center;
+    }
+
+    /* 难度饼图 */
+    .difficulty-chart-container {
+        display: flex;
+        align-items: center;
+        gap: var(--space-2xl);
+        justify-content: center;
+    }
+    .donut-chart-wrapper {
+        position: relative;
+        width: 250px;
+        height: 250px;
+    }
+    .donut-center {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        text-align: center;
+    }
+    .donut-total {
+        font-family: var(--font-mono);
+        font-size: 2rem;
+        font-weight: 700;
+    }
+    .donut-label {
+        font-size: 0.85rem;
+        color: var(--text-muted);
+    }
+    .difficulty-breakdown {
+        display: flex;
+        flex-direction: column;
+        gap: var(--space-md);
+    }
+    .diff-item {
+        display: flex;
+        align-items: center;
+        gap: var(--space-md);
+    }
+    .diff-color {
+        width: 16px;
+        height: 16px;
+        border-radius: 4px;
+    }
+    .diff-color.easy { background: var(--easy); }
+    .diff-color.medium { background: var(--medium); }
+    .diff-color.hard { background: var(--hard); }
+    .diff-info { min-width: 100px; }
+    .diff-name { font-weight: 600; font-size: 0.9rem; }
+    .diff-count { font-size: 0.8rem; color: var(--text-muted); font-family: var(--font-mono); }
+    .diff-percent {
+        font-family: var(--font-mono);
+        font-weight: 700;
+        font-size: 1.1rem;
+        min-width: 60px;
+        text-align: right;
+    }
+
+    .analytics-bottom {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: var(--space-lg);
+    }
+
+    .loading {
+        color: var(--text-muted);
+        font-style: italic;
+        text-align: center;
+        padding: var(--space-lg);
+    }
+
+    @media (max-width: 768px) {
+        .analytics-bottom { grid-template-columns: 1fr; }
+        .difficulty-chart-container { flex-direction: column; }
+        .prediction-grid { grid-template-columns: 1fr; }
+    }
+</style>
+
+<script>
+// ============================================================
+// GitHub 绿墙热力图
+// ============================================================
+async function renderHeatmap() {
+    const res = await fetch('/api/heatmap');
+    const data = await res.json();
+    const heatmap = data.heatmap;
+    const activity = data.activity;
+
+    const grid = document.getElementById('heatmap-grid');
+    grid.innerHTML = '';
+
+    // 生成最近 20 周 = 140 天
+    const today = new Date();
+    const startDate = new Date(today);
+    startDate.setDate(startDate.getDate() - 139 - startDate.getDay()); // 从周日开始
+
+    let totalDone = 0;
+    let activeDays = 0;
+
+    for (let d = new Date(startDate); d <= today; d.setDate(d.getDate() + 1)) {
+        const dateStr = d.toISOString().split('T')[0];
+        const count = heatmap[dateStr] || 0;
+        const actCount = activity[dateStr] || 0;
+        totalDone += count;
+        if (actCount > 0) activeDays++;
+
+        let level = 0;
+        if (count >= 5) level = 4;
+        else if (count >= 3) level = 3;
+        else if (count >= 2) level = 2;
+        else if (count >= 1) level = 1;
+
+        const cell = document.createElement('div');
+        cell.className = 'heatmap-cell';
+        cell.setAttribute('data-level', level);
+        cell.innerHTML = `<div class="heatmap-tooltip">${dateStr}: ${count} 题</div>`;
+        grid.appendChild(cell);
+    }
+
+    document.getElementById('total-done-month').textContent = totalDone;
+    document.getElementById('active-days').textContent = activeDays;
+}
+
+// ============================================================
+// 雷达图（纯 Canvas）
+// ============================================================
+async function renderRadar() {
+    const res = await fetch('/api/radar');
+    const data = await res.json();
+    const radar = data.radar;
+
+    const canvas = document.getElementById('radar-chart');
+    const ctx = canvas.getContext('2d');
+    const W = canvas.width;
+    const H = canvas.height;
+    const cx = W / 2;
+    const cy = H / 2;
+    const R = Math.min(cx, cy) - 60;
+    const n = radar.length;
+
+    ctx.clearRect(0, 0, W, H);
+
+    // 画同心圆
+    for (let i = 1; i <= 5; i++) {
+        const r = R * i / 5;
+        ctx.beginPath();
+        ctx.arc(cx, cy, r, 0, Math.PI * 2);
+        ctx.strokeStyle = '#e8e5df';
+        ctx.lineWidth = 1;
+        ctx.stroke();
+    }
+
+    // 画轴线和标签
+    const colors = ['#d97706'];
+    for (let i = 0; i < n; i++) {
+        const angle = (Math.PI * 2 * i / n) - Math.PI / 2;
+        const x = cx + R * Math.cos(angle);
+        const y = cy + R * Math.sin(angle);
+
+        ctx.beginPath();
+        ctx.moveTo(cx, cy);
+        ctx.lineTo(x, y);
+        ctx.strokeStyle = '#e8e5df';
+        ctx.lineWidth = 1;
+        ctx.stroke();
+
+        // 标签
+        const lx = cx + (R + 25) * Math.cos(angle);
+        const ly = cy + (R + 25) * Math.sin(angle);
+        ctx.fillStyle = '#6b6b6b';
+        ctx.font = '13px "LXGW WenKai Screen", sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(radar[i].category, lx, ly);
+    }
+
+    // 画数据区域
+    ctx.beginPath();
+    for (let i = 0; i < n; i++) {
+        const angle = (Math.PI * 2 * i / n) - Math.PI / 2;
+        const val = radar[i].mastery / 100;
+        const x = cx + R * val * Math.cos(angle);
+        const y = cy + R * val * Math.sin(angle);
+        if (i === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+    }
+    ctx.closePath();
+    ctx.fillStyle = 'rgba(217, 119, 6, 0.15)';
+    ctx.fill();
+    ctx.strokeStyle = '#d97706';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    // 画数据点
+    for (let i = 0; i < n; i++) {
+        const angle = (Math.PI * 2 * i / n) - Math.PI / 2;
+        const val = radar[i].mastery / 100;
+        const x = cx + R * val * Math.cos(angle);
+        const y = cy + R * val * Math.sin(angle);
+
+        ctx.beginPath();
+        ctx.arc(x, y, 5, 0, Math.PI * 2);
+        ctx.fillStyle = '#d97706';
+        ctx.fill();
+        ctx.strokeStyle = '#fff';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+    }
+
+    // 图例
+    const legend = document.getElementById('radar-legend');
+    legend.innerHTML = radar.map(r => `
+        <div class="radar-legend-item">
+            <div class="radar-legend-dot" style="background: ${r.mastery >= 80 ? '#059669' : r.mastery >= 50 ? '#d97706' : '#dc2626'}"></div>
+            <span>${r.category}</span>
+            <span class="radar-legend-value">${r.mastery}%</span>
+        </div>
+    `).join('');
+}
+
+// ============================================================
+// 智能推荐
+// ============================================================
+async function loadRecommendations() {
+    const res = await fetch('/api/recommend');
+    const data = await res.json();
+
+    // 薄弱知识点
+    const weakEl = document.getElementById('weak-points');
+    if (data.weak_points.length === 0) {
+        weakEl.innerHTML = '<span style="color:var(--text-muted)">暂无数据</span>';
+    } else {
+        weakEl.innerHTML = data.weak_points.map(wp => {
+            const cls = wp.rate < 30 ? 'critical' : wp.rate < 60 ? 'warning' : 'good';
+            return `<div class="weak-tag ${cls}">
+                ${wp.category} <span class="rate">${wp.rate}%</span>
+                <span style="font-size:0.75rem;color:var(--text-muted)">(${wp.done}/${wp.total})</span>
+            </div>`;
+        }).join('');
+    }
+
+    // 推荐列表
+    const recEl = document.getElementById('recommendations');
+    if (data.recommendations.length === 0) {
+        recEl.innerHTML = '<p class="empty-state">暂无推荐，继续保持！</p>';
+    } else {
+        recEl.innerHTML = '<div class="recommendations-list">' + data.recommendations.map(r => `
+            <a class="recommend-item" href="/problem/${r.id}">
+                <span class="recommend-id">#${r.leetcode_id}</span>
+                <div class="recommend-info">
+                    <div class="recommend-title">${r.title_cn}</div>
+                    <div class="recommend-reason">${r.reason}</div>
+                </div>
+                <div class="recommend-badges">
+                    <span class="difficulty-badge ${r.difficulty.toLowerCase()}">${r.difficulty}</span>
+                    <span class="category-tag">${r.category}</span>
+                </div>
+            </a>
+        `).join('') + '</div>';
+    }
+}
+
+// ============================================================
+// 趋势图（纯 Canvas）
+// ============================================================
+async function renderTrend() {
+    const res = await fetch('/api/prediction');
+    const data = await res.json();
+    const weekly = data.weekly_trend.reverse();
+
+    const canvas = document.getElementById('trend-chart');
+    const ctx = canvas.getContext('2d');
+    const W = canvas.width;
+    const H = canvas.height;
+    const padding = { top: 30, right: 30, bottom: 50, left: 50 };
+    const chartW = W - padding.left - padding.right;
+    const chartH = H - padding.top - padding.bottom;
+
+    ctx.clearRect(0, 0, W, H);
+
+    const maxVal = Math.max(...weekly.map(w => w.count), 1);
+    const barWidth = chartW / weekly.length * 0.6;
+    const gap = chartW / weekly.length;
+
+    // 网格线
+    for (let i = 0; i <= 4; i++) {
+        const y = padding.top + chartH * (1 - i / 4);
+        ctx.beginPath();
+        ctx.moveTo(padding.left, y);
+        ctx.lineTo(W - padding.right, y);
+        ctx.strokeStyle = '#f0ede6';
+        ctx.lineWidth = 1;
+        ctx.stroke();
+        ctx.fillStyle = '#9b9b9b';
+        ctx.font = '11px monospace';
+        ctx.textAlign = 'right';
+        ctx.fillText(Math.round(maxVal * i / 4), padding.left - 8, y + 4);
+    }
+
+    // 柱状图
+    weekly.forEach((w, i) => {
+        const x = padding.left + i * gap + (gap - barWidth) / 2;
+        const barH = (w.count / maxVal) * chartH;
+        const y = padding.top + chartH - barH;
+
+        // 渐变
+        const grad = ctx.createLinearGradient(x, y, x, y + barH);
+        grad.addColorStop(0, '#d97706');
+        grad.addColorStop(1, '#f59e0b');
+        ctx.fillStyle = grad;
+        
+        // 圆角柱子
+        const r = 4;
+        ctx.beginPath();
+        ctx.moveTo(x + r, y);
+        ctx.lineTo(x + barWidth - r, y);
+        ctx.quadraticCurveTo(x + barWidth, y, x + barWidth, y + r);
+        ctx.lineTo(x + barWidth, y + barH);
+        ctx.lineTo(x, y + barH);
+        ctx.lineTo(x, y + r);
+        ctx.quadraticCurveTo(x, y, x + r, y);
+        ctx.fill();
+
+        // 数值
+        ctx.fillStyle = '#1a1a1a';
+        ctx.font = 'bold 12px monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText(w.count, x + barWidth / 2, y - 8);
+
+        // 标签
+        ctx.fillStyle = '#9b9b9b';
+        ctx.font = '11px sans-serif';
+        ctx.fillText(w.week, x + barWidth / 2, padding.top + chartH + 20);
+    });
+
+    // 更新预测数据
+    document.getElementById('avg-daily').textContent = data.avg_daily;
+    if (data.finish_date) {
+        document.getElementById('finish-date').textContent = data.finish_date;
+    } else {
+        document.getElementById('finish-date').textContent = '∞';
+    }
+
+    const predCard = document.getElementById('prediction-card');
+    predCard.innerHTML = `
+        <div class="prediction-grid">
+            <div class="prediction-item">
+                <div class="prediction-value">${data.remaining}</div>
+                <div class="prediction-label">剩余题目</div>
+            </div>
+            <div class="prediction-item">
+                <div class="prediction-value">${data.avg_daily}</div>
+                <div class="prediction-label">日均完成</div>
+            </div>
+            <div class="prediction-item">
+                <div class="prediction-value">${data.days_to_finish || '∞'}</div>
+                <div class="prediction-label">预计剩余天数</div>
+            </div>
+            <div class="prediction-item">
+                <div class="prediction-value">${data.finish_date || '—'}</div>
+                <div class="prediction-label">预计完成日期</div>
+            </div>
+        </div>
+        ${data.days_to_finish ? `<div class="prediction-note">按当前速度，预计 <strong>${data.finish_date}</strong> 完成全部题目 🎉</div>` : '<div class="prediction-note">开始刷题后即可生成预测 ✨</div>'}
+    `;
+}
+
+// ============================================================
+// 连续天数
+// ============================================================
+async function loadStreak() {
+    const res = await fetch('/api/streak');
+    const data = await res.json();
+    document.getElementById('current-streak').textContent = data.current_streak;
+    document.getElementById('max-streak').textContent = data.max_streak;
+}
+
+// ============================================================
+// 初始化
+// ============================================================
+document.addEventListener('DOMContentLoaded', () => {
+    renderHeatmap();
+    renderRadar();
+    loadRecommendations();
+    renderTrend();
+    loadStreak();
+});
+</script>
+{% endblock %}
